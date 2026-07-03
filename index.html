@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <!-- 確保手機版網頁比例正確，禁止不必要的縮放 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>時刻通 - 新增提醒任務</title>
+    <!-- 載入 LINE 原生 LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+            margin: 0;
+        }
+        .container {
+            background: #fff;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        h1 {
+            font-size: 22px;
+            text-align: center;
+            color: #06C755; /* LINE 品牌綠色 */
+            margin-top: 0;
+            margin-bottom: 24px;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 15px;
+            color: #555;
+        }
+        input[type="time"], input[type="date"], select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px; /* 避免 iOS 點擊輸入框時自動放大畫面 */
+            background-color: #fafafa;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #06C755;
+            background-color: #fff;
+        }
+        textarea {
+            resize: vertical;
+            height: 90px;
+        }
+        .hidden {
+            display: none;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background-color: #06C755;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 17px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.2s;
+        }
+        .btn-submit:active {
+            background-color: #05a044;
+        }
+        .btn-submit:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #loading {
+            text-align: center;
+            color: #888;
+            font-size: 15px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>時刻通 - 新增提醒</h1>
+        
+        <div id="loading">連線至 LINE 授權中...</div>
+        
+        <form id="taskForm" class="hidden">
+            <div class="form-group">
+                <label for="targetTime">提醒時間 (必填)</label>
+                <input type="time" id="targetTime" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="cycleType">重複週期</label>
+                <select id="cycleType" required>
+                    <option value="單次">單次 (僅提醒一天)</option>
+                    <option value="每天">每天 (含假日)</option>
+                    <option value="上班日">上班日 (週一至週五)</option>
+                </select>
+            </div>
+            
+            <div class="form-group" id="dateGroup">
+                <label for="targetDate">提醒日期 (單次必填)</label>
+                <input type="date" id="targetDate">
+            </div>
+            
+            <div class="form-group">
+                <label for="messageContent">提醒內容 (必填)</label>
+                <textarea id="messageContent" placeholder="請輸入您希望時刻通提醒您的內容..." required></textarea>
+            </div>
+            
+            <button type="submit" id="submitBtn" class="btn-submit">建立任務</button>
+        </form>
+    </div>
+
+    <script>
+        // 系統核心變數
+        const LIFF_ID = "2010547461-E7FB0Y7d";
+        const WEBHOOK_URL = "https://chiehworks-n8n.zeabur.app/webhook/liff-create-task";
+        let userLineId = "";
+
+        // 畫面邏輯控制：根據週期類型自動顯示/隱藏「日期」欄位
+        document.getElementById('cycleType').addEventListener('change', function() {
+            const dateGroup = document.getElementById('dateGroup');
+            const targetDate = document.getElementById('targetDate');
+            if (this.value === '單次') {
+                dateGroup.classList.remove('hidden');
+                targetDate.required = true;
+            } else {
+                dateGroup.classList.add('hidden');
+                targetDate.required = false;
+                targetDate.value = ''; // 若為每天/上班日，直接清空日期資料避免後端誤判
+            }
+        });
+
+        // 初始化 LIFF 並取得使用者身分
+        async function initializeLiff() {
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                } else {
+                    const profile = await liff.getProfile();
+                    userLineId = profile.userId;
+                    
+                    // 授權成功，隱藏載入文字，顯示表單
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('taskForm').classList.remove('hidden');
+                    
+                    // 防呆設計：自動將「提醒日期」預設填入為「今天」
+                    const today = new Date();
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    document.getElementById('targetDate').value = `${yyyy}-${mm}-${dd}`;
+                }
+            } catch (err) {
+                document.getElementById('loading').innerText = "系統初始化失敗，請確認網路狀態或重新開啟。";
+            }
+        }
+
+        // 表單送出至 n8n Webhook
+        document.getElementById('taskForm').addEventListener('submit', async function(e) {
+            e.preventDefault(); // 阻止網頁預設的重載行為
+            
+            // 按鈕防呆，防止連點兩次建立重複任務
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerText = "資料傳送中...";
+
+            // 打包準備送給 n8n 的 JSON 資料
+            const payload = {
+                Line_ID: userLineId,
+                Target_Time: document.getElementById('targetTime').value,
+                Cycle_Type: document.getElementById('cycleType').value.split(' ')[0], // 過濾掉括號內的說明文字
+                Target_Date: document.getElementById('targetDate').value || null,
+                Target_Days: null, // 保留給進階擴充用
+                Message_Content: document.getElementById('messageContent').value
+            };
+
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    // 呼叫 LINE 原生提示視窗，並自動關閉 LIFF 返回聊天室
+                    window.alert("任務建立成功！");
+                    liff.closeWindow(); 
+                } else {
+                    const result = await response.json();
+                    window.alert("建立失敗：" + (result.message || "系統異常"));
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = "建立任務";
+                }
+            } catch (err) {
+                window.alert("網路連線異常，請確認伺服器狀態。");
+                submitBtn.disabled = false;
+                submitBtn.innerText = "建立任務";
+            }
+        });
+
+        // 網頁載入後立即啟動 LIFF
+        initializeLiff();
+    </script>
+</body>
+</html>
