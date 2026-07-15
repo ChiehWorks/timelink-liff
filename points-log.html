@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>時刻通 - 點數異動明細</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f4f6f9;
+            color: #333333;
+            padding-bottom: 30px;
+        }
+
+        /* 頂部餘額卡片 */
+        .balance-card {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: #ffffff;
+            padding: 30px 20px;
+            text-align: center;
+            border-bottom-left-radius: 24px;
+            border-bottom-right-radius: 24px;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.15);
+        }
+
+        .balance-title {
+            font-size: 14px;
+            opacity: 0.85;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .balance-value {
+            font-size: 42px;
+            font-weight: 700;
+        }
+
+        .balance-unit {
+            font-size: 16px;
+            margin-left: 4px;
+            font-weight: normal;
+        }
+
+        /* 篩選器區域 */
+        .filter-container {
+            background-color: #ffffff;
+            margin: 15px;
+            padding: 15px;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .filter-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #4b5563;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .filter-select, .filter-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            background-color: #f9fafb;
+            color: #1f2937;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .filter-select:focus, .filter-input:focus {
+            border-color: #4f46e5;
+            background-color: #ffffff;
+        }
+
+        .btn-search {
+            width: 100%;
+            background-color: #4f46e5;
+            color: #ffffff;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-search:hover {
+            background-color: #4338ca;
+        }
+
+        /* 列表區域 */
+        .log-container {
+            margin: 15px;
+        }
+
+        .log-item {
+            background-color: #ffffff;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+        }
+
+        .log-info {
+            flex: 1;
+            padding-right: 10px;
+        }
+
+        .log-reason {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .log-date {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .log-amount {
+            font-size: 18px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .amount-add {
+            color: #10b981;
+        }
+
+        .amount-deduct {
+            color: #ef4444;
+        }
+
+        /* 狀態提示 */
+        .status-message {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            font-size: 14px;
+            color: #4f46e5;
+        }
+
+        /* 載入更多按鈕 */
+        .btn-load-more {
+            display: none;
+            width: calc(100% - 30px);
+            margin: 15px;
+            background-color: #ffffff;
+            color: #4f46e5;
+            border: 1px solid #4f46e5;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .btn-load-more:hover {
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="balance-card">
+        <div class="balance-title">當前儲值點數</div>
+        <div class="balance-value"><span id="text-balance">0</span><span class="balance-unit">點</span></div>
+    </div>
+
+    <div class="filter-container">
+        <div class="filter-title">條件篩選</div>
+        <div class="filter-row">
+            <select id="select-type" class="filter-select">
+                <option value="all">所有異動</option>
+                <option value="add">只看加點</option>
+                <option value="deduct">只看扣點</option>
+            </select>
+            <input type="month" id="input-month" class="filter-input">
+        </div>
+        <button id="btn-filter-search" class="btn-search">執行篩選</button>
+    </div>
+
+    <div id="list-container" class="log-container"></div>
+
+    <div id="loading-block" class="loading-spinner">資料讀取中...</div>
+    <div id="status-block" class="status-message">請稍候，正在初始化身分驗證...</div>
+
+    <button id="btn-load" class="btn-load-more">載入更多紀錄</button>
+
+    <script>
+        // 常量設定：請將此網址替換為你實際在 n8n 部署的 Production Webhook 網址
+        const N8N_WEBHOOK_URL = 'https://[請替換為你的n8n網域]/webhook/get-points-log';
+        const LIFF_ID = 'YOUR_LIFF_ID'; // 請填入你在 LINE Developers 申請的 LIFF ID
+
+        // 全域分頁與過濾狀態控管
+        let userId = '';
+        let limit = 20;
+        let offset = 0;
+        let currentType = 'all';
+        let currentMonth = '';
+        let hasMoreData = true;
+
+        // DOM 元素綁定
+        const textBalance = document.getElementById('text-balance');
+        const listContainer = document.getElementById('list-container');
+        const loadingBlock = document.getElementById('loading-block');
+        const statusBlock = document.getElementById('status-block');
+        const btnLoad = document.getElementById('btn-load');
+        const btnFilterSearch = document.getElementById('btn-filter-search');
+        const selectType = document.getElementById('select-type');
+        const inputMonth = document.getElementById('input-month');
+
+        // 初始化 LIFF
+        async function initializeLiff() {
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+                
+                // 成功取得 LINE 用戶身分
+                const context = liff.getContext();
+                userId = context.userId;
+                
+                if (!userId) {
+                    const profile = await liff.getProfile();
+                    userId = profile.userId;
+                }
+
+                statusBlock.style.display = 'none';
+                // 啟動首次資料抓取
+                fetchData(true);
+            } catch (error) {
+                statusBlock.innerText = 'LIFF 初始化失敗: ' + error.message;
+                statusBlock.style.display = 'block';
+            }
+        }
+
+        // 向 n8n Webhook API 請求資料
+        async function fetchData(isReset = false) {
+            if (isReset) {
+                offset = 0;
+                listContainer.innerHTML = '';
+                hasMoreData = true;
+                btnLoad.style.display = 'none';
+            }
+
+            loadingBlock.style.display = 'block';
+            statusBlock.style.display = 'none';
+
+            // 組裝網址參數，嚴格依據當前篩選條件
+            let url = `${N8N_WEBHOOK_URL}?userId=${encodeURIComponent(userId)}&limit=${limit}&offset=${offset}&type=${currentType}`;
+            if (currentMonth) {
+                url += `&month=${encodeURIComponent(currentMonth)}`;
+            }
+
+            try {
+                const response = await fetch(url, { method: 'GET' });
+                
+                if (response.status === 401) {
+                    throw new Error('身分驗證失敗，用戶不存在');
+                }
+                if (!response.ok) {
+                    throw new Error(`系統報錯 (Status: ${response.status})`);
+                }
+
+                const result = await response.json();
+
+                if (result.status === 'success' && result.data) {
+                    // 更新頂部點數餘額
+                    textBalance.innerText = result.data.balance;
+
+                    const logs = result.data.logs || [];
+                    
+                    if (logs.length === 0) {
+                        if (isReset) {
+                            statusBlock.innerText = '暫無符合條件的點數異動明細';
+                            statusBlock.style.display = 'block';
+                        } else {
+                            hasMoreData = false;
+                        }
+                    } else {
+                        renderLogs(logs);
+                        if (logs.length < limit) {
+                            hasMoreData = false;
+                        }
+                    }
+
+                    // 判斷是否顯示「載入更多」按鈕
+                    if (hasMoreData && logs.length >= limit) {
+                        btnLoad.style.display = 'block';
+                    } else {
+                        btnLoad.style.display = 'none';
+                    }
+                } else {
+                    throw new Error('資料結構解析異常');
+                }
+            } catch (error) {
+                statusBlock.innerText = '錯誤提示: ' + error.message;
+                statusBlock.style.display = 'block';
+                btnLoad.style.display = 'none';
+            } finally {
+                loadingBlock.style.display = 'none';
+            }
+        }
+
+        // 將資料渲染至畫面上
+        function renderLogs(logs) {
+            logs.forEach(log => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'log-item';
+
+                // 左側資訊區（事由與時間）
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'log-info';
+                
+                const reasonDiv = document.createElement('div');
+                reasonDiv.className = 'log-reason';
+                reasonDiv.innerText = log.Reason || '未分類事件';
+
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'log-date';
+                dateDiv.innerText = formatDateTime(log.CreatedAt);
+
+                infoDiv.appendChild(reasonDiv);
+                infoDiv.appendChild(dateDiv);
+
+                // 右側金額區（正負點數變化值）
+                const amountDiv = document.createElement('div');
+                const amt = parseFloat(log.Change_Amount) || 0;
+                
+                if (amt > 0) {
+                    amountDiv.className = 'log-amount amount-add';
+                    amountDiv.innerText = `+${amt}`;
+                } else {
+                    amountDiv.className = 'log-amount amount-deduct';
+                    amountDiv.innerText = `${amt}`;
+                }
+
+                itemDiv.appendChild(infoDiv);
+                itemDiv.appendChild(amountDiv);
+                listContainer.appendChild(itemDiv);
+            });
+        }
+
+        // 純原生 JavaScript 時間格式化工具
+        function formatDateTime(dateString) {
+            if (!dateString) return '';
+            try {
+                const d = new Date(dateString);
+                if (isNaN(d.getTime())) return dateString;
+                
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                
+                return `${year}-${month}-${day} ${hours}:${minutes}`;
+            } catch (e) {
+                return dateString;
+            }
+        }
+
+        // 事件監聽：點擊載入更多
+        btnLoad.addEventListener('click', () => {
+            offset += limit;
+            fetchData(false);
+        });
+
+        // 事件監聽：點擊執行篩選
+        btnFilterSearch.addEventListener('click', () => {
+            currentType = selectType.value;
+            currentMonth = inputMonth.value; // 格式會是 "YYYY-MM"
+            fetchData(true);
+        });
+
+        // 頁面加載完成後自動啟動 LIFF 流程
+        window.addEventListener('load', initializeLiff);
+    </script>
+</body>
+</html>
