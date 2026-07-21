@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>時刻通 - 儲值點數</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        /* 呼吸燈載入畫面 */
+        #loadingScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+        .fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .breathing-logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 22px;
+            animation: breath 2s ease-in-out infinite; 
+        }
+        @keyframes breath {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.6; }
+        }
+        .loading-text {
+            margin-top: 20px;
+            color: #333;
+            font-weight: bold;
+            letter-spacing: 2px;
+            animation: pulseText 2s infinite;
+        }
+        @keyframes pulseText {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        /* 頂部餘額卡片 */
+        .balance-card {
+            background: linear-gradient(135deg, #06C755, #05a044);
+            color: #ffffff;
+            padding: 35px 20px;
+            text-align: center;
+            border-bottom-left-radius: 24px;
+            border-bottom-right-radius: 24px;
+            box-shadow: 0 4px 15px rgba(6, 199, 85, 0.2);
+            margin-bottom: 20px;
+        }
+        .balance-title {
+            font-size: 15px;
+            opacity: 0.9;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .balance-value {
+            font-size: 48px;
+            font-weight: 700;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        .balance-unit {
+            font-size: 16px;
+            margin-left: 6px;
+            font-weight: normal;
+        }
+
+        /* 主畫面容器 */
+        .container {
+            padding: 0 20px 40px 20px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: #111;
+            margin-bottom: 16px;
+            padding-left: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .section-title::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 18px;
+            background-color: #06C755;
+            border-radius: 2px;
+        }
+
+        /* 點數商品卡片 */
+        .package-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .package-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+            border: 1px solid #f0f0f0;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .package-card:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        .pkg-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+        }
+        .pkg-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pkg-name {
+            font-size: 17px;
+            font-weight: 800;
+            color: #222;
+        }
+        
+        /* 隱藏標籤的 class */
+        .pkg-bonus-tag {
+            display: inline-block;
+            background-color: #fff0f0;
+            color: #e53935;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid #ffe5e5;
+            width: fit-content;
+            margin-top: 2px;
+            transition: opacity 0.3s ease;
+        }
+        .hidden-tag {
+            display: none !important;
+        }
+
+        .pkg-base {
+            font-size: 13px;
+            color: #888;
+            font-weight: 500;
+        }
+        .pkg-total {
+            font-size: 14px;
+            color: #444;
+            margin-top: 4px;
+            font-weight: bold;
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+        }
+        .pkg-total span {
+            font-size: 26px;
+            font-weight: 900;
+            color: #06C755;
+            letter-spacing: -0.5px;
+            transition: color 0.3s ease;
+        }
+        
+        /* 老客的點數顏色 (低調一點) */
+        .total-old-user {
+            color: #111 !important;
+        }
+
+        .pkg-action {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+            min-width: 85px;
+        }
+        .pkg-price {
+            font-size: 18px;
+            font-weight: 800;
+            color: #111;
+        }
+        .btn-buy {
+            width: 100%;
+            background-color: #06C755;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 0;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-buy:active {
+            background-color: #05a044;
+        }
+
+        .footer-note {
+            text-align: center;
+            font-size: 13px;
+            color: #999;
+            margin-top: 24px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loadingScreen">
+        <img src="logo.png" alt="時刻通 Logo" class="breathing-logo" onerror="this.style.display='none'">
+        <div class="loading-text" id="loadingStatus">連線授權中...</div>
+    </div>
+
+    <div class="balance-card">
+        <div class="balance-title">當前可用點數</div>
+        <div class="balance-value"><span id="text-balance">-</span><span class="balance-unit">點</span></div>
+    </div>
+
+    <div class="container">
+        <div class="section-title">選擇儲值方案</div>
+        
+        <div class="package-list">
+            <!-- 方案 1 -->
+            <div class="package-card">
+                <div class="pkg-info">
+                    <div class="pkg-header"><div class="pkg-name">銅板入門包</div></div>
+                    <div class="pkg-base">基本 33 點</div>
+                    <div id="tag-1" class="pkg-bonus-tag">🎉 新戶加碼 +17 點</div>
+                    <div class="pkg-total">共 <span id="total-1">50</span> 點</div>
+                </div>
+                <div class="pkg-action">
+                    <div class="pkg-price">$ 99</div>
+                    <!-- 傳遞金額與真正的點數 (若為老客則為33點，目前寫死供checkout抓取) -->
+                    <button class="btn-buy" onclick="checkout(99, 33)">購買</button>
+                </div>
+            </div>
+
+            <!-- 方案 2 -->
+            <div class="package-card">
+                <div class="pkg-info">
+                    <div class="pkg-header"><div class="pkg-name">日常實用包</div></div>
+                    <div class="pkg-base">基本 150 點</div>
+                    <div id="tag-2" class="pkg-bonus-tag">🎉 新戶加碼 +50 點</div>
+                    <div class="pkg-total">共 <span id="total-2">200</span> 點</div>
+                </div>
+                <div class="pkg-action">
+                    <div class="pkg-price">$ 299</div>
+                    <button class="btn-buy" onclick="checkout(299, 150)">購買</button>
+                </div>
+            </div>
+
+            <!-- 方案 3 -->
+            <div class="package-card">
+                <div class="pkg-info">
+                    <div class="pkg-header"><div class="pkg-name">重度超值包</div></div>
+                    <div class="pkg-base">基本 500 點</div>
+                    <div id="tag-3" class="pkg-bonus-tag">🔥 新戶加碼 +100 點</div>
+                    <div class="pkg-total">共 <span id="total-3">600</span> 點</div>
+                </div>
+                <div class="pkg-action">
+                    <div class="pkg-price">$ 499</div>
+                    <button class="btn-buy" onclick="checkout(499, 500)">購買</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-note">
+            點擊購買即代表您同意時刻通數位服務條款<br>
+            付款將透過綠界科技安全加密通道進行
+        </div>
+    </div>
+
+    <script>
+        const N8N_CHECKOUT_URL = 'https://chiehworks-n8n.zeabur.app/webhook/ecpay-checkout';
+        const N8N_BALANCE_URL = 'https://chiehworks-n8n.zeabur.app/webhook/get-points-log';
+        const LIFF_ID = '2010547461-XXXXXXXX'; // ⚠️ 請記得填入
+
+        let userId = '';
+        let isNewUser = true; // 預設為新戶，等待後端 API 覆寫
+
+        const textBalance = document.getElementById('text-balance');
+        const loadingScreen = document.getElementById('loadingScreen');
+        const loadingStatus = document.getElementById('loadingStatus');
+
+        async function initializeLiff() {
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+                const profile = await liff.getProfile();
+                userId = profile.userId;
+                
+                loadingStatus.innerText = "讀取會員身分中...";
+                await fetchBalanceAndStatus();
+            } catch (error) {
+                loadingStatus.innerText = 'LIFF 初始化失敗';
+                alert("系統初始化失敗，請確認網路狀態。");
+            }
+        }
+
+        async function fetchBalanceAndStatus() {
+            const url = `${N8N_BALANCE_URL}?userId=${encodeURIComponent(userId)}&limit=1&offset=0&type=all`;
+
+            try {
+                const response = await fetch(url, { method: 'GET' });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const result = await response.json();
+
+                if (result.status === 'success' && result.data) {
+                    textBalance.innerText = result.data.balance || '0';
+                    
+                    // 接收後端判定的新舊戶身分
+                    if (result.data.hasOwnProperty('is_new_user')) {
+                        isNewUser = result.data.is_new_user;
+                    }
+                    
+                    // 如果是老客，執行變臉魔法
+                    if (!isNewUser) {
+                        updateUIForOldUser();
+                    }
+
+                    loadingScreen.classList.add('fade-out');
+                }
+            } catch (error) {
+                textBalance.innerText = '0';
+                loadingScreen.classList.add('fade-out');
+                console.error("狀態讀取失敗", error);
+            }
+        }
+
+        // 老客戶介面變更邏輯
+        function updateUIForOldUser() {
+            // 隱藏加碼標籤
+            document.getElementById('tag-1').classList.add('hidden-tag');
+            document.getElementById('tag-2').classList.add('hidden-tag');
+            document.getElementById('tag-3').classList.add('hidden-tag');
+
+            // 替換總點數為基本盤，並改變顏色降低侵略性
+            const t1 = document.getElementById('total-1');
+            t1.innerText = '33';
+            t1.classList.add('total-old-user');
+
+            const t2 = document.getElementById('total-2');
+            t2.innerText = '150';
+            t2.classList.add('total-old-user');
+
+            const t3 = document.getElementById('total-3');
+            t3.innerText = '500';
+            t3.classList.add('total-old-user');
+        }
+
+        function checkout(amount, basePoints) {
+            if (!userId) {
+                alert("無法取得使用者 ID，請重新載入頁面。");
+                return;
+            }
+
+            loadingStatus.innerText = "安全連線建立中，準備跳轉綠界...";
+            loadingScreen.classList.remove('fade-out');
+
+            // 結帳時，依據新舊戶身分計算真正要存入的點數
+            let finalPoints = basePoints;
+            if (isNewUser) {
+                if (amount === 99) finalPoints = 50;
+                if (amount === 299) finalPoints = 200;
+                if (amount === 499) finalPoints = 600;
+            }
+
+            setTimeout(() => {
+                // 將最終點數一併傳給 n8n，請確保 n8n 的 ecpay-checkout 會接收 Points_To_Add
+                const checkoutUrl = `${N8N_CHECKOUT_URL}?Amount=${amount}&Line_ID=${encodeURIComponent(userId)}&Points_To_Add=${finalPoints}`;
+                window.location.href = checkoutUrl;
+            }, 600);
+        }
+
+        window.addEventListener('load', initializeLiff);
+    </script>
+</body>
+</html>
