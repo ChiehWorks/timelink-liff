@@ -393,26 +393,34 @@
                 if (amount === 499) finalPoints = 600;
             }
 
-            setTimeout(() => {
-                // 將最終點數一併傳給 n8n，請確保 n8n 的 ecpay-checkout 會接收 Points_To_Add
-                const checkoutUrl = `${N8N_CHECKOUT_URL}?Amount=${amount}&Line_ID=${encodeURIComponent(userId)}&Points_To_Add=${finalPoints}`;
-                
-                // 核心修正：判斷並使用 liff.openWindow 強制喚醒系統外部預設瀏覽器
+            const checkoutUrl = `${N8N_CHECKOUT_URL}?Amount=${amount}&Line_ID=${encodeURIComponent(userId)}&Points_To_Add=${finalPoints}`;
+            
+            try {
+                // 核心修正：移除 setTimeout，在點擊瞬間直接執行跳轉，避免被手機安全機制攔截
                 if (liff.isApiAvailable('openWindow')) {
                     liff.openWindow({
                         url: checkoutUrl,
-                        external: true // 關鍵：強制跳出 LINE 內部瀏覽器，確保金流與 3D 驗證暢通
+                        external: true // 強制跳出 LINE 內部瀏覽器
                     });
                     
-                    // 外部開啟後，將原本 LIFF 內的 Loading 畫面關閉，避免用戶切回 LINE 時畫面卡住
+                    // 外部開啟後，將原本 LIFF 內的 Loading 畫面關閉
                     setTimeout(() => {
                         loadingScreen.classList.add('fade-out');
-                    }, 1000);
+                        loadingStatus.innerText = "連線授權中..."; // 重置文字
+                    }, 1500);
                 } else {
                     // 若不在 LIFF 環境或不支援 API 的降級方案
                     window.location.href = checkoutUrl;
                 }
-            }, 600);
+            } catch (error) {
+                console.error("跳轉失敗", error);
+                window.location.href = checkoutUrl;
+            }
+
+            // 終極防呆機制：如果 3 秒後畫面依然卡住（少數極端阻擋環境），提供手動點擊按鈕
+            setTimeout(() => {
+                loadingStatus.innerHTML = `跳轉似乎被手機阻擋了。<br><br><a href="${checkoutUrl}" target="_blank" style="color: #06C755; text-decoration: underline; font-size: 18px; padding: 10px; display: inline-block;">👉 請點擊這裡手動前往結帳</a>`;
+            }, 3000);
         }
 
         window.addEventListener('load', initializeLiff);
