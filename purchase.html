@@ -147,7 +147,7 @@
             color: #222;
         }
         
-        /* 隱藏標籤的 class */
+        /* 隱藏標籤與冗餘文字的 class */
         .pkg-bonus-tag {
             display: inline-block;
             background-color: #fff0f0;
@@ -179,7 +179,7 @@
             align-items: baseline;
             gap: 4px;
         }
-        .pkg-total span {
+        .pkg-total span.number {
             font-size: 26px;
             font-weight: 900;
             color: #06C755;
@@ -249,13 +249,12 @@
             <div class="package-card">
                 <div class="pkg-info">
                     <div class="pkg-header"><div class="pkg-name">銅板入門包</div></div>
-                    <div class="pkg-base">基本 33 點</div>
+                    <div id="base-1" class="pkg-base">基本 33 點</div>
                     <div id="tag-1" class="pkg-bonus-tag">🎉 新戶加碼 +17 點</div>
-                    <div class="pkg-total">共 <span id="total-1">50</span> 點</div>
+                    <div class="pkg-total"><span id="prefix-1">共 </span><span id="total-1" class="number">50</span> 點</div>
                 </div>
                 <div class="pkg-action">
                     <div class="pkg-price">$ 99</div>
-                    <!-- 傳遞金額與真正的點數 (若為老客則為33點，目前寫死供checkout抓取) -->
                     <button class="btn-buy" onclick="checkout(99, 33)">購買</button>
                 </div>
             </div>
@@ -264,9 +263,9 @@
             <div class="package-card">
                 <div class="pkg-info">
                     <div class="pkg-header"><div class="pkg-name">日常實用包</div></div>
-                    <div class="pkg-base">基本 150 點</div>
+                    <div id="base-2" class="pkg-base">基本 150 點</div>
                     <div id="tag-2" class="pkg-bonus-tag">🎉 新戶加碼 +50 點</div>
-                    <div class="pkg-total">共 <span id="total-2">200</span> 點</div>
+                    <div class="pkg-total"><span id="prefix-2">共 </span><span id="total-2" class="number">200</span> 點</div>
                 </div>
                 <div class="pkg-action">
                     <div class="pkg-price">$ 299</div>
@@ -278,9 +277,9 @@
             <div class="package-card">
                 <div class="pkg-info">
                     <div class="pkg-header"><div class="pkg-name">重度超值包</div></div>
-                    <div class="pkg-base">基本 500 點</div>
+                    <div id="base-3" class="pkg-base">基本 500 點</div>
                     <div id="tag-3" class="pkg-bonus-tag">🔥 新戶加碼 +100 點</div>
-                    <div class="pkg-total">共 <span id="total-3">600</span> 點</div>
+                    <div class="pkg-total"><span id="prefix-3">共 </span><span id="total-3" class="number">600</span> 點</div>
                 </div>
                 <div class="pkg-action">
                     <div class="pkg-price">$ 499</div>
@@ -298,7 +297,7 @@
     <script>
         const N8N_CHECKOUT_URL = 'https://chiehworks-n8n.zeabur.app/webhook/ecpay-checkout';
         const N8N_BALANCE_URL = 'https://chiehworks-n8n.zeabur.app/webhook/get-points-log';
-        const LIFF_ID = '2010547461-t13I5a8y'; // ⚠️ 請記得填入
+        const LIFF_ID = '2010547461-t13I5a8y'; // ⚠️ 請記得確認填寫
 
         let userId = '';
         let isNewUser = true; // 預設為新戶，等待後端 API 覆寫
@@ -341,7 +340,7 @@
                         isNewUser = result.data.is_new_user;
                     }
                     
-                    // 如果是老客，執行變臉魔法
+                    // 如果是老客，執行介面變更邏輯
                     if (!isNewUser) {
                         updateUIForOldUser();
                     }
@@ -355,25 +354,26 @@
             }
         }
 
-        // 老客戶介面變更邏輯
+        // 老客戶介面變更邏輯 (最佳化重構)
         function updateUIForOldUser() {
-            // 隱藏加碼標籤
-            document.getElementById('tag-1').classList.add('hidden-tag');
-            document.getElementById('tag-2').classList.add('hidden-tag');
-            document.getElementById('tag-3').classList.add('hidden-tag');
+            const oldPoints = [33, 150, 500];
 
-            // 替換總點數為基本盤，並改變顏色降低侵略性
-            const t1 = document.getElementById('total-1');
-            t1.innerText = '33';
-            t1.classList.add('total-old-user');
+            // 運用原生迴圈快速遍歷三個方案，節省程式碼並提高執行效率
+            for (let i = 1; i <= 3; i++) {
+                // 1. 隱藏加碼標籤
+                document.getElementById(`tag-${i}`).classList.add('hidden-tag');
+                
+                // 2. 隱藏「基本 XX 點」的冗餘文字
+                document.getElementById(`base-${i}`).classList.add('hidden-tag');
+                
+                // 3. 隱藏「共」字首，讓排版更純粹
+                document.getElementById(`prefix-${i}`).style.display = 'none';
 
-            const t2 = document.getElementById('total-2');
-            t2.innerText = '150';
-            t2.classList.add('total-old-user');
-
-            const t3 = document.getElementById('total-3');
-            t3.innerText = '500';
-            t3.classList.add('total-old-user');
+                // 4. 替換總點數為基本盤，並改變顏色降低侵略性
+                const totalSpan = document.getElementById(`total-${i}`);
+                totalSpan.innerText = oldPoints[i - 1];
+                totalSpan.classList.add('total-old-user');
+            }
         }
 
         function checkout(amount, basePoints) {
