@@ -115,8 +115,13 @@
             font-size: 14px; 
             color: #555; 
         }
+        
+        /* 🚀 關鍵修復區：統一所有輸入框的基礎設定，清除 iOS 預設干擾 */
         input[type="month"], select {
-            width: 100%; 
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
             padding: 12px; 
             border: 1px solid #ddd; 
             border-radius: 8px;
@@ -125,6 +130,13 @@
             background-color: #fafafa;
             color: #333;
         }
+        
+        /* 🚀 關鍵修復區：針對 iOS 的 month 進行強制重置，剝離原生渲染外觀 */
+        input[type="month"] {
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
         input:focus, select:focus {
             outline: none;
             border-color: #06C755;
