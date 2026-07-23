@@ -204,7 +204,10 @@
             font-weight: 800;
             color: #111;
         }
+        
+        /* 將按鈕樣式套用到超連結上 */
         .btn-buy {
+            display: block;
             width: 100%;
             background-color: #06C755;
             color: white;
@@ -215,6 +218,9 @@
             font-weight: bold;
             cursor: pointer;
             transition: background-color 0.2s;
+            text-align: center;
+            text-decoration: none;
+            box-sizing: border-box;
         }
         .btn-buy:active {
             background-color: #05a044;
@@ -255,7 +261,8 @@
                 </div>
                 <div class="pkg-action">
                     <div class="pkg-price">$ 99</div>
-                    <button class="btn-buy" onclick="checkout(99, 33)">購買</button>
+                    <!-- 替換為純 HTML 標籤 -->
+                    <a id="btn-buy-1" class="btn-buy" target="_blank">購買</a>
                 </div>
             </div>
 
@@ -269,7 +276,7 @@
                 </div>
                 <div class="pkg-action">
                     <div class="pkg-price">$ 299</div>
-                    <button class="btn-buy" onclick="checkout(299, 150)">購買</button>
+                    <a id="btn-buy-2" class="btn-buy" target="_blank">購買</a>
                 </div>
             </div>
 
@@ -283,7 +290,7 @@
                 </div>
                 <div class="pkg-action">
                     <div class="pkg-price">$ 499</div>
-                    <button class="btn-buy" onclick="checkout(499, 500)">購買</button>
+                    <a id="btn-buy-3" class="btn-buy" target="_blank">購買</a>
                 </div>
             </div>
         </div>
@@ -342,13 +349,14 @@
                     if (!isNewUser) {
                         updateUIForOldUser();
                     }
-
-                    loadingScreen.classList.add('fade-out');
                 }
             } catch (error) {
                 textBalance.innerText = '0';
-                loadingScreen.classList.add('fade-out');
                 console.error("狀態讀取失敗", error);
+            } finally {
+                // 🌟 無論 API 成功或失敗，最後一定要組合按鈕網址並關閉載入畫面
+                setupBuyButtons();
+                loadingScreen.classList.add('fade-out');
             }
         }
 
@@ -366,49 +374,24 @@
             }
         }
 
-        function checkout(amount, basePoints) {
-            if (!userId) {
-                alert("無法取得使用者 ID，請重新載入頁面。");
-                return;
-            }
+        // 🌟 取代原本的 checkout 函式：將網址直接賦予給 a 標籤
+        function setupBuyButtons() {
+            const packages = [
+                { id: 1, amount: 99, base: 33, newBonus: 50 },
+                { id: 2, amount: 299, base: 150, newBonus: 200 },
+                { id: 3, amount: 499, base: 500, newBonus: 600 }
+            ];
 
-            loadingStatus.innerText = "安全連線建立中，準備跳轉外部瀏覽器...";
-            loadingScreen.classList.remove('fade-out');
-
-            let finalPoints = basePoints;
-            if (isNewUser) {
-                if (amount === 99) finalPoints = 50;
-                if (amount === 299) finalPoints = 200;
-                if (amount === 499) finalPoints = 600;
-            }
-
-            // 🌟 終極殺手鐧：加入 openExternalBrowser=1，強迫 LINE 在底層攔截並交接給外部系統瀏覽器
-            const checkoutUrl = `${N8N_CHECKOUT_URL}?Amount=${amount}&Line_ID=${encodeURIComponent(userId)}&Points_To_Add=${finalPoints}&openExternalBrowser=1`;
-            
-            try {
-                // 雙管齊下：同時發送 LIFF 外開指令與帶有參數的網址
-                if (liff.isApiAvailable('openWindow')) {
-                    liff.openWindow({
-                        url: checkoutUrl,
-                        external: true 
-                    });
-                } else {
-                    window.location.href = checkoutUrl; 
+            packages.forEach(pkg => {
+                const finalPoints = isNewUser ? pkg.newBonus : pkg.base;
+                // 將 openExternalBrowser=1 寫死在原生的 href 屬性中
+                const checkoutUrl = `${N8N_CHECKOUT_URL}?Amount=${pkg.amount}&Line_ID=${encodeURIComponent(userId)}&Points_To_Add=${finalPoints}&openExternalBrowser=1`;
+                
+                const btn = document.getElementById(`btn-buy-${pkg.id}`);
+                if (btn) {
+                    btn.href = checkoutUrl;
                 }
-
-                // 外部開啟後，將原本 LIFF 內的 Loading 畫面關閉
-                setTimeout(() => {
-                    loadingScreen.classList.add('fade-out');
-                    loadingStatus.innerText = "連線授權中..."; 
-                }, 1500);
-            } catch (error) {
-                console.error("跳轉失敗", error);
-                window.location.href = checkoutUrl;
-            }
-
-            setTimeout(() => {
-                loadingStatus.innerHTML = `跳轉似乎被手機阻擋了。<br><br><a href="${checkoutUrl}" target="_blank" style="color: #06C755; text-decoration: underline; font-size: 18px; padding: 10px; display: inline-block;">👉 請點擊這裡手動前往結帳</a>`;
-            }, 3000);
+            });
         }
 
         window.addEventListener('load', initializeLiff);
