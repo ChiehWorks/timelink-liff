@@ -106,6 +106,7 @@
         }
         .form-group {
             flex: 1;
+            min-width: 0; /* 🚀 關鍵修復區：強制忽略內部元素的預設最小寬度，確保雙邊真正等寬 1:1 */
             margin-bottom: 0; 
         }
         label { 
@@ -116,7 +117,7 @@
             color: #555; 
         }
         
-        /* 🚀 關鍵修復區：統一所有輸入框的基礎設定，清除 iOS 預設干擾並加入 min-height 防止塌陷 */
+        /* 統一所有輸入框的基礎設定，清除 iOS 預設干擾並加入 min-height 防止塌陷 */
         input[type="month"], select {
             display: block;
             width: 100%;
@@ -132,7 +133,7 @@
             min-height: 48px;
         }
         
-        /* 🚀 關鍵修復區：針對 iOS 的 month 進行強制重置，剝離原生渲染外觀 */
+        /* 針對 iOS 的 month 進行強制重置，剝離原生渲染外觀 */
         input[type="month"] {
             -webkit-appearance: none;
             appearance: none;
