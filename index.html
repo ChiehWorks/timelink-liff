@@ -2,10 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <!-- 確保手機版網頁比例正確，禁止不必要的縮放 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>時刻通 - 建立任務</title>
-    <!-- 載入 LINE 原生 LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         body {
@@ -24,7 +22,7 @@
         h1 {
             font-size: 22px;
             text-align: center;
-            color: #06C755; /* LINE 品牌綠色 */
+            color: #06C755;
             margin-top: 0;
             margin-bottom: 24px;
         }
@@ -39,7 +37,7 @@
             color: #555;
         }
         
-        /* 統一所有輸入框的基礎設定，加入 display: block 與 margin: 0 清除 iOS 預設干擾 */
+        /* 統一所有輸入框的基礎設定，並加入 min-height 防止 iOS 空值塌陷 */
         input[type="time"], input[type="date"], select, textarea {
             display: block;
             width: 100%;
@@ -49,11 +47,11 @@
             border: 1px solid #ddd;
             border-radius: 8px;
             box-sizing: border-box;
-            font-size: 16px; /* 避免 iOS 點擊輸入框時自動放大畫面 */
+            font-size: 16px;
             background-color: #fafafa;
+            min-height: 48px; 
         }
         
-        /* 針對 iOS 的 date 與 time 進行強制重置，剝離原生渲染外觀 */
         input[type="time"], input[type="date"] {
             -webkit-appearance: none;
             appearance: none;
@@ -64,10 +62,14 @@
             border-color: #06C755;
             background-color: #fff;
         }
+        
+        /* textarea 由於需要填寫多行內容，給予更高的高度設定 */
         textarea {
             resize: vertical;
             height: 90px;
+            min-height: 90px; 
         }
+        
         .hidden {
             display: none;
         }
@@ -135,15 +137,11 @@
     </div>
 
     <script>
-// 系統核心變數
 const LIFF_ID = "2010547461-E7FB0Y7d";
-// 1. 這是「背景自動註冊」要打的網址
 const REGISTER_WEBHOOK = "https://chiehworks-n8n.zeabur.app/webhook/liff-register";
-// 2. 這是「表單送出」要打的網址 (請替換為您真正負責處理『新增任務』的 n8n Webhook 網址)
 const CREATE_TASK_WEBHOOK = "https://chiehworks-n8n.zeabur.app/webhook/liff-create-task"; 
 let userLineId = "";
 
-// 畫面邏輯控制：根據週期類型自動顯示/隱藏「日期」欄位
 document.getElementById('cycleType').addEventListener('change', function() {
     const dateGroup = document.getElementById('dateGroup');
     const targetDate = document.getElementById('targetDate');
@@ -157,7 +155,6 @@ document.getElementById('cycleType').addEventListener('change', function() {
     }
 });
 
-// 初始化 LIFF 並取得使用者身分
 async function initializeLiff() {
     try {
         await liff.init({ liffId: LIFF_ID });
@@ -167,18 +164,15 @@ async function initializeLiff() {
             const profile = await liff.getProfile();
             userLineId = profile.userId;
             
-            // 授權成功，隱藏載入文字，顯示表單
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('taskForm').classList.remove('hidden');
             
-            // 防呆設計：自動將「提醒日期」預設填入為「今天」
             const today = new Date();
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             const dd = String(today.getDate()).padStart(2, '0');
             document.getElementById('targetDate').value = `${yyyy}-${mm}-${dd}`;
 
-            // 🚀 【關鍵修復】網頁載入瞬間，立刻在背景無感發送「註冊/登入」請求給 n8n
             fetch(REGISTER_WEBHOOK, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -188,14 +182,12 @@ async function initializeLiff() {
                     pictureUrl: profile.pictureUrl
                 })
             }).catch(err => console.log("背景註冊管線未通，但不影響前端畫面", err));
-            // -----------------------------------------------------------
         }
     } catch (err) {
         document.getElementById('loading').innerText = "系統初始化失敗，請確認網路狀態或重新開啟。";
     }
 }
 
-// 表單送出至 n8n Webhook (負責處理真實的任務建立)
 document.getElementById('taskForm').addEventListener('submit', async function(e) {
     e.preventDefault(); 
     
@@ -203,7 +195,6 @@ document.getElementById('taskForm').addEventListener('submit', async function(e)
     submitBtn.disabled = true;
     submitBtn.innerText = "資料傳送中...";
 
-    // 打包準備送給「任務建立」工作流的 JSON 資料
     const payload = {
         Line_ID: userLineId,
         Target_Time: document.getElementById('targetTime').value,
@@ -213,7 +204,6 @@ document.getElementById('taskForm').addEventListener('submit', async function(e)
     };
 
     try {
-        // 🚀 注意：這裡改打 CREATE_TASK_WEBHOOK，不要再打給註冊了
         const response = await fetch(CREATE_TASK_WEBHOOK, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -236,7 +226,6 @@ document.getElementById('taskForm').addEventListener('submit', async function(e)
     }
 });
 
-// 網頁載入後立即啟動 LIFF
 initializeLiff();
     </script>
 </body>
