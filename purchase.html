@@ -187,7 +187,7 @@
             transition: color 0.3s ease;
         }
         
-        /* 老客的點數顏色 */
+        /* 老客的點數顏色 (低調一點) */
         .total-old-user {
             color: #111 !important;
         }
@@ -205,7 +205,7 @@
             color: #111;
         }
         
-        /* 按鈕樣式 */
+        /* 將按鈕樣式套用到超連結上 */
         .btn-buy {
             display: block;
             width: 100%;
@@ -233,7 +233,7 @@
             margin-top: 24px;
             line-height: 1.5;
         }
-    </script>
+    </style>
 </head>
 <body>
 
@@ -261,6 +261,7 @@
                 </div>
                 <div class="pkg-action">
                     <div class="pkg-price">$ 99</div>
+                    <!-- 替換為純 HTML 標籤 -->
                     <a id="btn-buy-1" class="btn-buy" target="_blank">購買</a>
                 </div>
             </div>
@@ -303,7 +304,6 @@
     <script>
         const N8N_CHECKOUT_URL = 'https://chiehworks-n8n.zeabur.app/webhook/ecpay-checkout';
         const N8N_BALANCE_URL = 'https://chiehworks-n8n.zeabur.app/webhook/get-points-log';
-        const REGISTER_WEBHOOK = 'https://chiehworks-n8n.zeabur.app/webhook/liff-register';
         const LIFF_ID = '2010547461-t13I5a8y'; 
 
         let userId = '';
@@ -312,27 +312,6 @@
         const textBalance = document.getElementById('text-balance');
         const loadingScreen = document.getElementById('loadingScreen');
         const loadingStatus = document.getElementById('loadingStatus');
-
-        // -----------------------------------------
-        // 🚀 修正 1：加上 async，確保可以被 await 等待
-        // -----------------------------------------
-        async function triggerBackgroundRegistration(profile) {
-            try {
-                // 強制等待網路請求發送，避免被 LIFF 瀏覽器中斷
-                await fetch(REGISTER_WEBHOOK, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        Line_ID: profile.userId,
-                        displayName: profile.displayName,
-                        pictureUrl: profile.pictureUrl
-                    })
-                });
-            } catch (err) {
-                console.log("背景註冊管線未通，但不影響前端畫面", err);
-            }
-        }
-        // -----------------------------------------
 
         async function initializeLiff() {
             try {
@@ -344,11 +323,7 @@
                 const profile = await liff.getProfile();
                 userId = profile.userId;
                 
-                // 🚀 修正 2：加入 await 並更新文字狀態。強制等待訊號發送完畢。
-                loadingStatus.innerText = "驗證身分中...";
-                await triggerBackgroundRegistration(profile);
-                
-                loadingStatus.innerText = "讀取點數資料中...";
+                loadingStatus.innerText = "讀取會員身分中...";
                 await fetchBalanceAndStatus();
             } catch (error) {
                 loadingStatus.innerText = 'LIFF 初始化失敗';
@@ -379,6 +354,7 @@
                 textBalance.innerText = '0';
                 console.error("狀態讀取失敗", error);
             } finally {
+                // 🌟 無論 API 成功或失敗，最後一定要組合按鈕網址並關閉載入畫面
                 setupBuyButtons();
                 loadingScreen.classList.add('fade-out');
             }
@@ -398,6 +374,7 @@
             }
         }
 
+        // 🌟 取代原本的 checkout 函式：將網址直接賦予給 a 標籤
         function setupBuyButtons() {
             const packages = [
                 { id: 1, amount: 99, base: 33, newBonus: 50 },
@@ -407,6 +384,7 @@
 
             packages.forEach(pkg => {
                 const finalPoints = isNewUser ? pkg.newBonus : pkg.base;
+                // 將 openExternalBrowser=1 寫死在原生的 href 屬性中
                 const checkoutUrl = `${N8N_CHECKOUT_URL}?Amount=${pkg.amount}&Line_ID=${encodeURIComponent(userId)}&Points_To_Add=${finalPoints}&openExternalBrowser=1`;
                 
                 const btn = document.getElementById(`btn-buy-${pkg.id}`);
