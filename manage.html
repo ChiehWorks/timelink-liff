@@ -257,30 +257,12 @@
         const LIFF_ID = "2010547461-Yeb2WkyQ"; 
         
         const BASE_WEBHOOK_URL = "https://chiehworks-n8n.zeabur.app/webhook";
-        // 新增：註冊與裂變引擎的 Webhook 網址
-        const REGISTER_WEBHOOK = `${BASE_WEBHOOK_URL}/liff-register`; 
         const API_GET_TASKS = `${BASE_WEBHOOK_URL}/liff-get-tasks`;
         const API_UPDATE_TASK = `${BASE_WEBHOOK_URL}/liff-update-task`;
         const API_DELETE_TASK = `${BASE_WEBHOOK_URL}/liff-delete-task`;
         
         let userLineId = "";
         let currentTasks = []; 
-
-        // -----------------------------------------
-        // 新增：獨立封裝的背景註冊函數
-        // -----------------------------------------
-        function triggerBackgroundRegistration(profile) {
-            fetch(REGISTER_WEBHOOK, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    Line_ID: profile.userId,
-                    displayName: profile.displayName,
-                    pictureUrl: profile.pictureUrl
-                })
-            }).catch(err => console.log("背景註冊管線未通，但不影響前端畫面", err));
-        }
-        // -----------------------------------------
 
         document.getElementById('editCycle').addEventListener('change', function() {
             const dateGroup = document.getElementById('editDateGroup');
@@ -302,10 +284,6 @@
                 } else {
                     const profile = await liff.getProfile();
                     userLineId = profile.userId;
-                    
-                    // 👉 成功取得 Profile 後，立刻觸發背景註冊 (不會卡住畫面)
-                    triggerBackgroundRegistration(profile);
-
                     document.getElementById('loadingStatus').innerText = "獲取任務資料中...";
                     await fetchTasks();
                 }
