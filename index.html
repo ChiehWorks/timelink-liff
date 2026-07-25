@@ -138,7 +138,6 @@
 
     <script>
 const LIFF_ID = "2010547461-E7FB0Y7d";
-const REGISTER_WEBHOOK = "https://chiehworks-n8n.zeabur.app/webhook/liff-register";
 const CREATE_TASK_WEBHOOK = "https://chiehworks-n8n.zeabur.app/webhook/liff-create-task"; 
 let userLineId = "";
 
@@ -172,16 +171,6 @@ async function initializeLiff() {
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             const dd = String(today.getDate()).padStart(2, '0');
             document.getElementById('targetDate').value = `${yyyy}-${mm}-${dd}`;
-
-            fetch(REGISTER_WEBHOOK, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    Line_ID: profile.userId,
-                    displayName: profile.displayName,
-                    pictureUrl: profile.pictureUrl
-                })
-            }).catch(err => console.log("背景註冊管線未通，但不影響前端畫面", err));
         }
     } catch (err) {
         document.getElementById('loading').innerText = "系統初始化失敗，請確認網路狀態或重新開啟。";
