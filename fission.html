@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>時刻通 - 邀請獎勵儀表板</title>
+    <title>時刻通 - 推薦成功名單</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         body {
@@ -34,24 +34,30 @@
             opacity: 0;
             pointer-events: none;
         }
+        
+        /* 升級版 LOGO 圖片呼吸燈特效 (純粹縮放版) */
         .breathing-logo {
             width: 90px;
             height: 90px;
+            object-fit: contain; /* 確保 LOGO 比例不失真 */
             border-radius: 20px;
-            background-color: #06C755;
             animation: breath 2s ease-in-out infinite; 
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
         }
         @keyframes breath {
-            0% { transform: scale(0.9); opacity: 0.7; }
-            50% { transform: scale(1.05); opacity: 1; }
-            100% { transform: scale(0.9); opacity: 0.7; }
+            0% { 
+                transform: scale(0.9); 
+                opacity: 0.7; 
+            }
+            50% { 
+                transform: scale(1.05); 
+                opacity: 1; 
+            }
+            100% { 
+                transform: scale(0.9); 
+                opacity: 0.7; 
+            }
         }
+        
         .loading-text {
             margin-top: 16px;
             color: #555;
@@ -190,7 +196,8 @@
 
     <!-- 載入中畫面 -->
     <div id="loadingScreen">
-        <div class="breathing-logo">時</div>
+        <!-- 讀取專案資料夾下的 logo.png -->
+        <img src="logo.png" alt="時刻通 Logo" class="breathing-logo">
         <div class="loading-text" id="loadingStatus">資料同步中...</div>
     </div>
 
@@ -219,7 +226,6 @@
 
     <script>
         const LIFF_ID = "2010547461-bwpc55l0"; // 請替換為您的 LIFF ID
-        // n8n Webhook 網址 (對齊裂變命名)
         const FETCH_FISSION_WEBHOOK = "https://chiehworks-n8n.zeabur.app/webhook/liff-get-fission";
 
         let userLineId = "";
