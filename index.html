@@ -37,7 +37,7 @@
             color: #555;
         }
         
-        /* 統一所有輸入框的基礎設定，並加入 min-height 防止 iOS 空值塌陷 */
+        /* 統一所有輸入框的基礎設定 */
         input[type="time"], input[type="date"], select, textarea {
             display: block;
             width: 100%;
@@ -63,7 +63,6 @@
             background-color: #fff;
         }
         
-        /* textarea 由於需要填寫多行內容，給予更高的高度設定 */
         textarea {
             resize: vertical;
             height: 90px;
@@ -99,6 +98,12 @@
             font-size: 15px;
             margin-bottom: 15px;
         }
+        .hint-text {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+            font-weight: normal;
+        }
     </style>
 </head>
 <body>
@@ -118,13 +123,17 @@
                 <select id="cycleType" required>
                     <option value="單次">單次 (僅提醒一天)</option>
                     <option value="每天">每天 (含假日)</option>
+                    <option value="每週">每週 (指定星期幾)</option>
+                    <option value="每月">每月 (指定幾號)</option>
                     <option value="上班日">上班日 (週一至週五)</option>
+                    <option value="月底最後一天">月底最後一天</option>
                 </select>
             </div>
             
             <div class="form-group" id="dateGroup">
-                <label for="targetDate">提醒日期 (單次必填)</label>
+                <label for="targetDate" id="dateLabel">提醒日期 (必填)</label>
                 <input type="date" id="targetDate">
+                <div id="dateHint" class="hint-text"></div>
             </div>
             
             <div class="form-group">
@@ -141,13 +150,32 @@ const LIFF_ID = "2010547461-E7FB0Y7d";
 const CREATE_TASK_WEBHOOK = "https://chiehworks-n8n.zeabur.app/webhook/liff-create-task"; 
 let userLineId = "";
 
+// 動態切換日期輸入框與提示詞
 document.getElementById('cycleType').addEventListener('change', function() {
     const dateGroup = document.getElementById('dateGroup');
     const targetDate = document.getElementById('targetDate');
-    if (this.value === '單次') {
+    const dateLabel = document.getElementById('dateLabel');
+    const dateHint = document.getElementById('dateHint');
+    
+    // 需要顯示日期的選項
+    const needsDate = ['單次', '每週', '每月'].includes(this.value);
+    
+    if (needsDate) {
         dateGroup.classList.remove('hidden');
         targetDate.required = true;
+        
+        if (this.value === '單次') {
+            dateLabel.innerText = '提醒日期 (必填)';
+            dateHint.innerText = '時間到後只會提醒一次。';
+        } else if (this.value === '每週') {
+            dateLabel.innerText = '選擇基準日期 (必填)';
+            dateHint.innerText = '系統將自動抓取您選擇的「星期幾」作為每週提醒日。';
+        } else if (this.value === '每月') {
+            dateLabel.innerText = '選擇基準日期 (必填)';
+            dateHint.innerText = '系統將自動抓取您選擇的「幾號」作為每月提醒日 (選31號遇小月將跳過)。';
+        }
     } else {
+        // 每天、上班日、月底最後一天 不需要選日期
         dateGroup.classList.add('hidden');
         targetDate.required = false;
         targetDate.value = ''; 
@@ -171,6 +199,9 @@ async function initializeLiff() {
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             const dd = String(today.getDate()).padStart(2, '0');
             document.getElementById('targetDate').value = `${yyyy}-${mm}-${dd}`;
+            
+            // 初始化觸發一次 change 確保標籤正確
+            document.getElementById('cycleType').dispatchEvent(new Event('change'));
         }
     } catch (err) {
         document.getElementById('loading').innerText = "系統初始化失敗，請確認網路狀態或重新開啟。";
@@ -184,11 +215,30 @@ document.getElementById('taskForm').addEventListener('submit', async function(e)
     submitBtn.disabled = true;
     submitBtn.innerText = "資料傳送中...";
 
+    const cycleValue = document.getElementById('cycleType').value;
+    const dateValue = document.getElementById('targetDate').value;
+    let computedTargetDays = null;
+
+    // 解析日期以計算 Target_Days (避免 JS 時區問題，採用手動拆解)
+    if (dateValue && (cycleValue === '每週' || cycleValue === '每月')) {
+        const [yyyy, mm, dd] = dateValue.split('-');
+        const dateObj = new Date(yyyy, mm - 1, dd);
+        
+        if (cycleValue === '每週') {
+            // getDay() 回傳 0(週日) 到 6(週六)
+            computedTargetDays = dateObj.getDay(); 
+        } else if (cycleValue === '每月') {
+            // getDate() 回傳 1 到 31
+            computedTargetDays = dateObj.getDate(); 
+        }
+    }
+
     const payload = {
         Line_ID: userLineId,
         Target_Time: document.getElementById('targetTime').value,
-        Cycle_Type: document.getElementById('cycleType').value.split(' ')[0], 
-        Target_Date: document.getElementById('targetDate').value || null,
+        Cycle_Type: cycleValue,
+        Target_Date: dateValue || null,
+        Target_Days: computedTargetDays, // 將計算結果送給 n8n
         Message_Content: document.getElementById('messageContent').value
     };
 
