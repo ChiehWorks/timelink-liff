@@ -201,6 +201,7 @@
         .hidden { display: none !important; }
         .btn-save { width: 100%; padding: 14px; background-color: #06C755; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 10px;}
         .btn-cancel { width: 100%; padding: 14px; background-color: transparent; color: #888; border: none; font-size: 15px; margin-top: 5px; }
+        .hint-text { font-size: 12px; color: #888; margin-top: 4px; font-weight: normal; }
     </style>
 </head>
 <body>
@@ -233,13 +234,17 @@
                     <select id="editCycle" required>
                         <option value="單次">單次 (僅提醒一天)</option>
                         <option value="每天">每天 (含假日)</option>
+                        <option value="每週">每週 (指定星期幾)</option>
+                        <option value="每月">每月 (指定幾號)</option>
                         <option value="上班日">上班日 (週一至週五)</option>
+                        <option value="月底最後一天">月底最後一天</option>
                     </select>
                 </div>
                 
                 <div class="form-group" id="editDateGroup">
-                    <label>提醒日期</label>
+                    <label id="editDateLabel">提醒日期</label>
                     <input type="date" id="editDate">
+                    <div id="editDateHint" class="hint-text"></div>
                 </div>
                 
                 <div class="form-group">
@@ -264,15 +269,33 @@
         let userLineId = "";
         let currentTasks = []; 
 
+        // 動態切換日期輸入框與提示詞
         document.getElementById('editCycle').addEventListener('change', function() {
             const dateGroup = document.getElementById('editDateGroup');
             const targetDate = document.getElementById('editDate');
-            if (this.value === '單次') {
+            const dateLabel = document.getElementById('editDateLabel');
+            const dateHint = document.getElementById('editDateHint');
+            
+            const needsDate = ['單次', '每週', '每月'].includes(this.value);
+            
+            if (needsDate) {
                 dateGroup.classList.remove('hidden');
                 targetDate.required = true;
+                
+                if (this.value === '單次') {
+                    dateLabel.innerText = '提醒日期 (必填)';
+                    dateHint.innerText = '時間到後只會提醒一次。';
+                } else if (this.value === '每週') {
+                    dateLabel.innerText = '選擇基準日期 (必填)';
+                    dateHint.innerText = '系統將自動抓取您選擇的「星期幾」作為每週提醒日。';
+                } else if (this.value === '每月') {
+                    dateLabel.innerText = '選擇基準日期 (必填)';
+                    dateHint.innerText = '系統將自動抓取您選擇的「幾號」作為每月提醒日 (選31號遇小月將跳過)。';
+                }
             } else {
                 dateGroup.classList.add('hidden');
                 targetDate.required = false;
+                targetDate.value = ''; 
             }
         });
 
@@ -319,8 +342,8 @@
             }
 
             currentTasks.forEach(task => {
-                const isSingle = task.Cycle_Type === '單次';
-                const dateDisplay = isSingle && task.Target_Date ? `<span class="meta-item">📅 ${task.Target_Date}</span>` : '';
+                const needsDateDisplay = ['單次', '每週', '每月'].includes(task.Cycle_Type);
+                const dateDisplay = needsDateDisplay && task.Target_Date ? `<span class="meta-item">📅 ${task.Target_Date}</span>` : '';
                 
                 const cardHtml = `
                     <div class="task-card" id="task-${task.Id}">
@@ -375,17 +398,11 @@
             document.getElementById('editCycle').value = task.Cycle_Type;
             document.getElementById('editContent').value = task.Message_Content;
             
-            const dateGroup = document.getElementById('editDateGroup');
-            const dateInput = document.getElementById('editDate');
-            if (task.Cycle_Type === '單次') {
-                dateGroup.classList.remove('hidden');
-                dateInput.required = true;
-                dateInput.value = task.Target_Date || '';
-            } else {
-                dateGroup.classList.add('hidden');
-                dateInput.required = false;
-                dateInput.value = '';
-            }
+            // 設定日期資料
+            document.getElementById('editDate').value = task.Target_Date || '';
+
+            // 手動觸發 change 事件，確保 UI 根據選擇的週期正確展開/折疊
+            document.getElementById('editCycle').dispatchEvent(new Event('change'));
 
             document.getElementById('editModal').classList.add('active');
         }
@@ -401,12 +418,29 @@
             btnSave.disabled = true;
             btnSave.innerText = "儲存中...";
 
+            const cycleValue = document.getElementById('editCycle').value;
+            const dateValue = document.getElementById('editDate').value;
+            let computedTargetDays = null;
+
+            // 解析日期以計算 Target_Days (安全拆解避開時區偏移)
+            if (dateValue && (cycleValue === '每週' || cycleValue === '每月')) {
+                const [yyyy, mm, dd] = dateValue.split('-');
+                const dateObj = new Date(yyyy, mm - 1, dd);
+                
+                if (cycleValue === '每週') {
+                    computedTargetDays = dateObj.getDay(); 
+                } else if (cycleValue === '每月') {
+                    computedTargetDays = dateObj.getDate(); 
+                }
+            }
+
             const payload = {
                 taskId: document.getElementById('editTaskId').value,
                 Line_ID: userLineId, 
                 Target_Time: document.getElementById('editTime').value,
-                Cycle_Type: document.getElementById('editCycle').value,
-                Target_Date: document.getElementById('editDate').value || null,
+                Cycle_Type: cycleValue,
+                Target_Date: dateValue || null,
+                Target_Days: computedTargetDays, // 新增精準計算的參數
                 Message_Content: document.getElementById('editContent').value
             };
 
