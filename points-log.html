@@ -117,20 +117,21 @@
             color: #555; 
         }
         
-        /* 統一所有輸入框的基礎設定，清除 iOS 預設干擾並加入 min-height 防止塌陷 */
+        /* 統一所有輸入框的基礎設定，清除 iOS 預設干擾並加入絕對高度與行高確保一致 */
         input[type="month"], select {
             display: block;
             width: 100%;
             max-width: 100%;
             margin: 0;
-            padding: 12px; 
+            padding: 0 12px; /* 將上下 padding 歸零，純靠 height 撐開垂直空間 */
             border: 1px solid #ddd; 
             border-radius: 8px;
             box-sizing: border-box; 
             font-size: 16px; 
             background-color: #fafafa;
             color: #333;
-            min-height: 48px;
+            height: 48px; /* 🚀 關鍵 1：改用絕對高度，強制兩者高度一致 */
+            line-height: 46px; /* 🚀 關鍵 2：設定行高 (48px - 上下邊框 2px)，確保文字垂直置中 */
         }
         
         /* 針對 iOS 的 month 進行強制重置，剝離原生渲染外觀 */
